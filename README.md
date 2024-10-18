@@ -61,4 +61,4 @@ SUPPORT CHANNEL: <a href="[https://whatsapp.com/channel/0029VaqgxNt5q08c9XMItG3P
   ## ENJOY!!!;
 ### Credits to:
 Many Thanks to
-- [ `Hakisolos` ] (https://github.com/hakisolos) For assisting me in bot development
+- [`Hakisolos`](https://github.com/hakisolos) For assisting me in bot development
