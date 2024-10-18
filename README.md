@@ -59,3 +59,6 @@ SUPPORT CHANNEL: <a href="[https://whatsapp.com/channel/0029VaqgxNt5q08c9XMItG3P
 <a><img src='https://i.imgur.com/LyHic3i.gif'/></a><a><img src='https://i.imgur.com/LyHic3i.gif'/></a>
   
   ## ENJOY!!!;
+### Credits to:
+Many Thanks to
+- [ `Hakisolos` ] (https://github.com/hakisolos) For assisting me in bot development
