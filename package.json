@@ -9,7 +9,7 @@
     "alya": "pm2 start . --deep-monitoring --attach --name Queen_Maria || node .",
     "start": "pm2 start . --attach --name Queen_Maria",
     "stop": "pm2 stop Queen_Maria",
-    "heroku-postbuild": "git clone https://github.com/abbybots141/Queen_Maria temp && mv temp/.git .git && rm -rf temp && npx puppeteer@latest install  --y",
+    "heroku-postbuild": "git clone https://github.com/abbybots141/Queen_Maria temp && mv temp/.git .git && rm -rf temp && npx puppeteer@latest install --y",
     "fis-heroku-postbuild": "git clone https://github.com/abbybots141/Queen_Maria.git temp1 && rsync -av temp1/* ./ && rsync -av temp1/.* ./ && rm -rf temp1 && npm i && npx puppeteer@latest install",
     "postinstall": "npx puppeteer@latest install --y"
   },
@@ -81,4 +81,4 @@
     "url": "https://github.com/abbybots141/Queen_Maria/issues"
   },
   "homepage": "https://github.com/abbybots141/Queen_Maria#readme"
-  }
+}
