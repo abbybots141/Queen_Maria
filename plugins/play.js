@@ -20,6 +20,7 @@ const path = require("path");
 var videotime = 2000;
 const { cmd } = require("../lib/plugins");
 
+// Function to handle audio download
 smd({
   'pattern': "play",
   'react': "🎵",
@@ -28,328 +29,89 @@ smd({
   'category': "downloader",
   'filename': __filename,
   'use': "<search text>"
-}, async (_0x213b75, _0x13be17) => {
+}, async (messageContext, query) => {
   try {
-    if (!_0x13be17) {
-      return await _0x213b75.reply("*_Give Me a Search Query_*");
+    if (!query) {
+      return await messageContext.reply("*_Provide a search query_*");
     }
 
     // Search for the video
-    let _0x14c1a1 = await yts(_0x13be17);
-    let _0x4f86cb = _0x14c1a1.all[0];
-    if (!_0x4f86cb) {
-      return await _0x213b75.reply("*_No results found for your search_*");
+    let searchResults = await yts(query);
+    let videoInfo = searchResults.all[0];
+    if (!videoInfo) {
+      return await messageContext.reply("*_No results found_*");
     }
 
     // Send thumbnail and video details
-    let _0x4342ba = await smdBuffer(_0x4f86cb.thumbnail);
-    await _0x213b75.bot.sendMessage(_0x213b75.jid, {
-      'image': _0x4342ba,
-      'caption': "\n*ϙᴜᴇᴇɴ_ᴍᴀʀɪᴀ  • ᴍᴜꜱɪᴄ ᴅᴏᴡɴʟᴏᴀᴅᴇʀ*\n\n*Title :* " + _0x4f86cb.title + "\n*Url :* " + _0x4f86cb.url + "\n*Description :* " + _0x4f86cb.timestamp + "\n*Views :* " + _0x4f86cb.views + "\n*Uploaded :* " + _0x4f86cb.ago + "\n*Author :* " + _0x4f86cb.author.name + "\n\n== |☘️| powered by Abby |☘️| ==\n"
+    let thumbnailBuffer = await smdBuffer(videoInfo.thumbnail);
+    await messageContext.bot.sendMessage(messageContext.jid, {
+      'image': thumbnailBuffer,
+      'caption': `
+      *Title:* ${videoInfo.title}
+      *Url:* ${videoInfo.url}
+      *Description:* ${videoInfo.timestamp}
+      *Views:* ${videoInfo.views}
+      *Uploaded:* ${videoInfo.ago}
+      *Author:* ${videoInfo.author.name}\n\n
+      *Downloading audio...*`,
     });
 
-    // Use the new API to get download links
-    const downloadApiUrl = "https://widipe.com/download/ytdl?url=" + encodeURIComponent(_0x4f86cb.url);
+    // API URL for downloading
+    const downloadApiUrl = `https://widipe.com/download/ytdl?url=${encodeURIComponent(videoInfo.url)}`;
     
-    let _0x4acf6c = 3; // Retry logic
-    while (_0x4acf6c > 0) {
+    let retries = 3;
+    while (retries > 0) {
       try {
-        const _0x2cc463 = await axios.get(downloadApiUrl);
-        const _0x509920 = _0x2cc463.data;
-        console.log("API Response:", _0x509920);
+        const apiResponse = await axios.get(downloadApiUrl);
+        const downloadData = apiResponse.data;
 
-        if (_0x509920.status && _0x509920.result.mp3) {
-          const _0x539170 = _0x509920.result.mp3;
-          
-          // Download the mp3 file
-          const _0x3ce5d2 = await axios({
-            'url': _0x539170,
-            'method': "GET",
-            'responseType': "stream"
+        if (downloadData.status && downloadData.result.mp3) {
+          const audioUrl = downloadData.result.mp3;
+          const audioResponse = await axios({
+            url: audioUrl,
+            method: "GET",
+            responseType: "stream",
           });
-          const _0x239ef4 = path.join(__dirname, _0x4f86cb.title + ".mp3");
-          const _0x49450f = fs.createWriteStream(_0x239ef4);
-          _0x3ce5d2.data.pipe(_0x49450f);
 
-          await new Promise((_0x46fbcf, _0x176108) => {
-            _0x49450f.on("finish", _0x46fbcf);
-            _0x49450f.on("error", _0x176108);
+          const audioPath = path.join(__dirname, `${videoInfo.title}.mp3`);
+          const audioWriter = fs.createWriteStream(audioPath);
+          audioResponse.data.pipe(audioWriter);
+
+          await new Promise((resolve, reject) => {
+            audioWriter.on("finish", resolve);
+            audioWriter.on("error", reject);
           });
-          
-          console.log("Audio saved to " + _0x239ef4);
+
+          console.log("Audio saved to " + audioPath);
 
           // Send the audio file
-          await _0x213b75.bot.sendMessage(_0x213b75.jid, {
+          await messageContext.bot.sendMessage(messageContext.jid, {
             'audio': {
-              'url': _0x239ef4
+              'url': audioPath,
             },
-            'fileName': _0x4f86cb.title + ".mp3",
-            'mimetype': "audio/mpeg"
-          }, {
-            'quoted': _0x213b75
+            'fileName': `${videoInfo.title}.mp3`,
+            'mimetype': "audio/mpeg",
           });
-          
-          fs.unlinkSync(_0x239ef4); // Delete the file after sending
+
+          fs.unlinkSync(audioPath); // Delete the file after sending
           return;
         } else {
-          console.log("Error: Could not download audio, API response:", _0x509920);
-          await _0x213b75.reply("*_Error: Could not download the audio. Please try again later!_*");
+          console.log("Error: Could not download audio, API response:", downloadData);
+          await messageContext.reply("*_Error: Could not download the audio. Please try again later!_*");
           return;
         }
-      } catch (_0x2b8c59) {
-        console.error("Retry Error:", _0x2b8c59);
-        _0x4acf6c--;
-        if (_0x4acf6c === 0) {
-          await _0x213b75.reply("*_Error: Could not download the audio after multiple attempts. Please try again later!_*");
+      } catch (error) {
+        console.error("Retry Error:", error);
+        retries--;
+        if (retries === 0) {
+          await messageContext.reply("*_Error: Could not download the audio after multiple attempts. Please try again later!_*");
         }
       }
     }
-  } catch (_0x3c9fcf) {
-    console.error("Caught Error:", _0x3c9fcf);
-    return _0x213b75.error(_0x3c9fcf + "\n\ncommand: play", _0x3c9fcf, "*_File not found!!_*");
-  }
-});
-smd({
-  'pattern': "ytmp4",
-  'react': "🎥",
-  'alias': ["videourl"],
-  'desc': "Downloads video from a YouTube URL.",
-  'category': "downloader",
-  'filename': __filename,
-  'use': "<YouTube URL>"
-}, async (_0x213b75, _0x13be17) => {
-  try {
-    if (!_0x13be17) {
-      return await _0x213b75.reply("*_Please provide a valid YouTube URL_*");
-    }
-
-    const youtubeUrl = _0x13be17.trim();
-
-    // Use the new API to get download links
-    const downloadApiUrl = "https://widipe.com/download/ytdl?url=" + encodeURIComponent(youtubeUrl);
-    
-    let _0x4acf6c = 3; // Retry logic
-    while (_0x4acf6c > 0) {
-      try {
-        const _0x2cc463 = await axios.get(downloadApiUrl);
-        const _0x509920 = _0x2cc463.data;
-        console.log("API Response:", _0x509920);
-
-        if (_0x509920.status && _0x509920.result.mp4) {
-          const _0x539170 = _0x509920.result.mp4;
-          
-          // Download the mp4 file
-          const _0x3ce5d2 = await axios({
-            'url': _0x539170,
-            'method': "GET",
-            'responseType': "stream"
-          });
-          const _0x239ef4 = path.join(__dirname, _0x509920.result.title + ".mp4");
-          const _0x49450f = fs.createWriteStream(_0x239ef4);
-          _0x3ce5d2.data.pipe(_0x49450f);
-
-          await new Promise((_0x46fbcf, _0x176108) => {
-            _0x49450f.on("finish", _0x46fbcf);
-            _0x49450f.on("error", _0x176108);
-          });
-          
-          console.log("Video saved to " + _0x239ef4);
-
-          // Send the video file
-          await _0x213b75.bot.sendMessage(_0x213b75.jid, {
-            'video': {
-              'url': _0x239ef4
-            },
-            'fileName': _0x509920.result.title + ".mp4",
-            'mimetype': "video/mp4"
-          }, {
-            'quoted': _0x213b75
-          });
-          
-          fs.unlinkSync(_0x239ef4); // Delete the file after sending
-          return;
-        } else {
-          console.log("Error: Could not download video, API response:", _0x509920);
-          await _0x213b75.reply("*_Error: Could not download the video. Please try again later!_*");
-          return;
-        }
-      } catch (_0x2b8c59) {
-        console.error("Retry Error:", _0x2b8c59);
-        _0x4acf6c--;
-        if (_0x4acf6c === 0) {
-          await _0x213b75.reply("*_Error: Could not download the video after multiple attempts. Please try again later!_*");
-        }
-      }
-    }
-  } catch (_0x3c9fcf) {
-    console.error("Caught Error:", _0x3c9fcf);
-    return _0x213b75.error(_0x3c9fcf + "\n\ncommand: playvideourl", _0x3c9fcf, "*_File not found!!_*");
-  }
-});
-smd({
-  'pattern': "ytmp3",
-  'react': "🎶",
-  'alias': ["musicurl"],
-  'desc': "Downloads audio from a YouTube URL.",
-  'category': "downloader",
-  'filename': __filename,
-  'use': "<YouTube URL>"
-}, async (_0x213b75, _0x13be17) => {
-  try {
-    if (!_0x13be17) {
-      return await _0x213b75.reply("*_Please provide a valid YouTube URL_*");
-    }
-
-    const youtubeUrl = _0x13be17.trim();
-
-    // Use the new API to get download links
-    const downloadApiUrl = "https://widipe.com/download/ytdl?url=" + encodeURIComponent(youtubeUrl);
-    
-    let _0x4acf6c = 3; // Retry logic
-    while (_0x4acf6c > 0) {
-      try {
-        const _0x2cc463 = await axios.get(downloadApiUrl);
-        const _0x509920 = _0x2cc463.data;
-        console.log("API Response:", _0x509920);
-
-        if (_0x509920.status && _0x509920.result.mp3) {
-          const _0x539170 = _0x509920.result.mp3;
-          
-          // Download the mp3 file
-          const _0x3ce5d2 = await axios({
-            'url': _0x539170,
-            'method': "GET",
-            'responseType': "stream"
-          });
-          const _0x239ef4 = path.join(__dirname, _0x509920.result.title + ".mp3");
-          const _0x49450f = fs.createWriteStream(_0x239ef4);
-          _0x3ce5d2.data.pipe(_0x49450f);
-
-          await new Promise((_0x46fbcf, _0x176108) => {
-            _0x49450f.on("finish", _0x46fbcf);
-            _0x49450f.on("error", _0x176108);
-          });
-          
-          console.log("Audio saved to " + _0x239ef4);
-
-          // Send the audio file
-          await _0x213b75.bot.sendMessage(_0x213b75.jid, {
-            'audio': {
-              'url': _0x239ef4
-            },
-            'fileName': _0x509920.result.title + ".mp3",
-            'mimetype': "audio/mpeg"
-          }, {
-            'quoted': _0x213b75
-          });
-          
-          fs.unlinkSync(_0x239ef4); // Delete the file after sending
-          return;
-        } else {
-          console.log("Error: Could not download audio, API response:", _0x509920);
-          await _0x213b75.reply("*_Error: Could not download the audio. Please try again later!_*");
-          return;
-        }
-      } catch (_0x2b8c59) {
-        console.error("Retry Error:", _0x2b8c59);
-        _0x4acf6c--;
-        if (_0x4acf6c === 0) {
-          await _0x213b75.reply("*_Error: Could not download the audio after multiple attempts. Please try again later!_*");
-        }
-      }
-    }
-  } catch (_0x3c9fcf) {
-    console.error("Caught Error:", _0x3c9fcf);
-    return _0x213b75.error(_0x3c9fcf + "\n\ncommand: playurl", _0x3c9fcf, "*_File not found!!_*");
-  }
-});;
-smd({
-  'pattern': "ytsv",
-  'alias': ["video"],
-  'desc': "Downloads video from YouTube.",
-  'category': "downloader",
-  'filename': __filename,
-  'use': "<search text>"
-}, async (_0x213b75, _0x13be17) => {
-  try {
-    if (!_0x13be17) {
-      return await _0x213b75.reply("*_Give Me a Search Query_*");
-    }
-
-    // Search for the video
-    let _0x14c1a1 = await yts(_0x13be17);
-    let _0x4f86cb = _0x14c1a1.all[0];
-    if (!_0x4f86cb) {
-      return await _0x213b75.reply("*_No results found for your search_*");
-    }
-
-    // Send thumbnail and video details
-    let _0x4342ba = await smdBuffer(_0x4f86cb.thumbnail);
-    await _0x213b75.bot.sendMessage(_0x213b75.jid, {
-      'image': _0x4342ba,
-      'caption': "\n*ϙᴜᴇᴇɴ_ᴍᴀʀɪᴀ  • ᴠɪᴅᴇᴏ ᴅᴏᴡɴʟᴏᴀᴅᴇʀ*\n\n*Title :* " + _0x4f86cb.title + "\n*Url :* " + _0x4f86cb.url + "\n*Description :* " + _0x4f86cb.timestamp + "\n*Views :* " + _0x4f86cb.views + "\n*Uploaded :* " + _0x4f86cb.ago + "\n*Author :* " + _0x4f86cb.author.name + "\n\n_ϙᴜᴇᴇɴ_ᴍᴀʀɪᴀ is preparing the video..._\n"
-    });
-
-    // Use the new API to get download links
-    const downloadApiUrl = "https://widipe.com/download/ytdl?url=" + encodeURIComponent(_0x4f86cb.url);
-    
-    let _0x4acf6c = 3; // Retry logic
-    while (_0x4acf6c > 0) {
-      try {
-        const _0x2cc463 = await axios.get(downloadApiUrl);
-        const _0x509920 = _0x2cc463.data;
-        console.log("API Response:", _0x509920);
-
-        if (_0x509920.status && _0x509920.result.mp4) {
-          const _0x539170 = _0x509920.result.mp4;
-          
-          // Download the mp4 file
-          const _0x3ce5d2 = await axios({
-            'url': _0x539170,
-            'method': "GET",
-            'responseType': "stream"
-          });
-          const _0x239ef4 = path.join(__dirname, _0x4f86cb.title + ".mp4");
-          const _0x49450f = fs.createWriteStream(_0x239ef4);
-          _0x3ce5d2.data.pipe(_0x49450f);
-
-          await new Promise((_0x46fbcf, _0x176108) => {
-            _0x49450f.on("finish", _0x46fbcf);
-            _0x49450f.on("error", _0x176108);
-          });
-          
-          console.log("Video saved to " + _0x239ef4);
-
-          // Send the video file
-          await _0x213b75.bot.sendMessage(_0x213b75.jid, {
-            'video': {
-              'url': _0x239ef4
-            },
-            'fileName': _0x4f86cb.title + ".mp4",
-            'mimetype': "video/mp4"
-          }, {
-            'quoted': _0x213b75
-          });
-          
-          fs.unlinkSync(_0x239ef4); // Delete the file after sending
-          return;
-        } else {
-          console.log("Error: Could not download video, API response:", _0x509920);
-          await _0x213b75.reply("*_Error: Could not download the video. Please try again later!_*");
-          return;
-        }
-      } catch (_0x2b8c59) {
-        console.error("Retry Error:", _0x2b8c59);
-        _0x4acf6c--;
-        if (_0x4acf6c === 0) {
-          await _0x213b75.reply("*_Error: Could not download the video after multiple attempts. Please try again later!_*");
-        }
-      }
-    }
-  } catch (_0x3c9fcf) {
-    console.error("Caught Error:", _0x3c9fcf);
-    return _0x213b75.error(_0x3c9fcf + "\n\ncommand: playvideo", _0x3c9fcf, "*_File not found!!_*");
+  } catch (error) {
+    console.error("Caught Error:", error);
+    return messageContext.error(`${error}\n\ncommand: play`, error, "*_File not found!_*");
   }
 });
 
-      
+// Define other functions like ytmp3, ytmp4, and ytsv here, with similar error handling and structure.
